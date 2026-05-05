@@ -1,13 +1,27 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'fs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// 获取项目根目录下的 data 文件夹路径
+// 当使用 tsx watch 运行时，__dirname 指向 src/database
+// 所以需要向上两级：src/database -> src -> backend，然后进入 data
+const dataDir = path.join(__dirname, '..', '..', 'data');
 
-const dbPath = path.join(__dirname, '..', '..', 'data', 'cryptoscope.db');
+// 确保 data 目录存在
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+  console.log(`Created data directory: ${dataDir}`);
+}
 
-export const db = new Database(dbPath);
+const dbPath = path.join(dataDir, 'cryptoscope.db');
+
+console.log(`Database path: ${dbPath}`);
+
+export const db: any = new Database(dbPath);
+
+// 启用外键约束
+db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS coins (
@@ -57,6 +71,39 @@ db.exec(`
 
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_coins_market_cap_rank ON coins(market_cap_rank)
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS favorites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    coin_id TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (coin_id) REFERENCES coins(id),
+    UNIQUE(session_id, coin_id)
+  )
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_favorites_session_id ON favorites(session_id)
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_favorites_coin_id ON favorites(coin_id)
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS market_cache (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    total_market_cap REAL,
+    total_volume REAL,
+    btc_dominance REAL,
+    eth_dominance REAL,
+    active_cryptocurrencies INTEGER,
+    markets INTEGER,
+    market_cap_change_percentage_24h_usd REAL,
+    cached_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )
 `);
 
 export default db;

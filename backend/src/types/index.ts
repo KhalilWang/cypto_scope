@@ -99,4 +99,56 @@ export interface ApiResponse<T = unknown> {
 export interface CoinDetail extends CoinMarketData {
   priceHistory: PriceHistoryPoint[];
   technicalIndicators: TechnicalIndicators;
+  tradingSignal?: TradingSignal;
+}
+
+export interface Favorite {
+  id: number;
+  session_id: string;
+  coin_id: string;
+  created_at: string;
+}
+
+export interface FavoriteWithCoin extends Coin {
+  favorited_at: string;
+}
+
+export interface MarketOverview {
+  total_market_cap: number;
+  total_volume: number;
+  btc_dominance: number;
+  eth_dominance: number;
+  active_cryptocurrencies: number;
+  markets: number;
+  market_cap_change_percentage_24h_usd: number;
+  up_coins_count: number;
+  down_coins_count: number;
+}
+
+export interface TradingSignal {
+  overall: 'bullish' | 'bearish' | 'neutral';
+  confidence: number;
+  recommendation: string;
+  reasons: string[];
+  rsi_analysis: {
+    signal: 'overbought' | 'oversold' | 'neutral';
+    value: number;
+    interpretation: string;
+  };
+  macd_analysis: {
+    signal: 'bullish_crossover' | 'bearish_crossover' | 'bullish' | 'bearish' | 'neutral';
+    interpretation: string;
+  };
+  sma_analysis: {
+    signal: 'golden_cross' | 'death_cross' | 'bullish' | 'bearish' | 'neutral';
+    trend: 'bullish' | 'bearish' | 'sideways';
+    interpretation: string;
+  };
+}
+
+export interface HealthCheck {
+  status: 'ok' | 'error';
+  timestamp: string;
+  database: 'connected' | 'disconnected';
+  uptime: number;
 }

@@ -3,7 +3,8 @@ import {
   TechnicalIndicators, 
   RSIIndicator, 
   MACDIndicator, 
-  SMAIndicator 
+  SMAIndicator,
+  TradingSignal
 } from '../types';
 
 export class TechnicalIndicatorsService {
@@ -24,7 +25,118 @@ export class TechnicalIndicatorsService {
     };
   }
 
-  private calculateSMA(prices: number[], period: number): number[] {
+  generateTradingSignal(indicators: TechnicalIndicators): TradingSignal {
+    const { rsi, macd, sma } = indicators;
+    
+    let bullishScore = 0;
+    let bearishScore = 0;
+    const reasons: string[] = [];
+
+    if (rsi.signal === 'oversold') {
+      bullishScore += 2;
+      reasons.push(`RSI 处于超卖区域 (${rsi.value.toFixed(2)})，可能存在反弹机会`);
+    } else if (rsi.signal === 'overbought') {
+      bearishScore += 2;
+      reasons.push(`RSI 处于超买区域 (${rsi.value.toFixed(2)})，可能面临回调压力`);
+    } else if (rsi.value >= 60) {
+      bullishScore += 1;
+      reasons.push(`RSI 偏强 (${rsi.value.toFixed(2)})，市场情绪偏向多方`);
+    } else if (rsi.value <= 40) {
+      bearishScore += 1;
+      reasons.push(`RSI 偏弱 (${rsi.value.toFixed(2)})，市场情绪偏向空方`);
+    }
+
+    if (macd.signal === 'bullish_crossover') {
+      bullishScore += 3;
+      reasons.push('MACD 金叉：MACD 线上穿信号线，强烈看涨信号');
+    } else if (macd.signal === 'bearish_crossover') {
+      bearishScore += 3;
+      reasons.push('MACD 死叉：MACD 线下穿信号线，强烈看跌信号');
+    } else if (macd.signal === 'bullish') {
+      bullishScore += 1;
+      reasons.push('MACD 柱状图为正，处于看涨区间');
+    } else if (macd.signal === 'bearish') {
+      bearishScore += 1;
+      reasons.push('MACD 柱状图为负，处于看跌区间');
+    }
+
+    if (sma.signal === 'golden_cross') {
+      bullishScore += 3;
+      reasons.push('黄金交叉：SMA10 上穿 SMA30，强烈看涨信号');
+    } else if (sma.signal === 'death_cross') {
+      bearishScore += 3;
+      reasons.push('死亡交叉：SMA10 下穿 SMA30，强烈看跌信号');
+    } else if (sma.signal === 'bullish') {
+      bullishScore += 2;
+      reasons.push('SMA 多头排列：SMA10 位于 SMA30 上方，上涨趋势中');
+    } else if (sma.signal === 'bearish') {
+      bearishScore += 2;
+      reasons.push('SMA 空头排列：SMA10 位于 SMA30 下方，下跌趋势中');
+    }
+
+    let overall: 'bullish' | 'bearish' | 'neutral';
+    let confidence: number;
+    let recommendation: string;
+
+    const totalScore = bullishScore + bearishScore;
+    
+    if (totalScore === 0) {
+      overall = 'neutral';
+      confidence = 50;
+      recommendation = '当前各项技术指标信号不明确，市场处于震荡整理阶段。建议保持观望，等待明确的趋势信号出现后再进行操作。';
+    } else if (bullishScore > bearishScore) {
+      overall = 'bullish';
+      confidence = Math.min(95, 50 + (bullishScore - bearishScore) * 10);
+      
+      const strongSignals = reasons.filter(r => r.includes('强烈')).length;
+      if (strongSignals >= 2) {
+        recommendation = `当前多项技术指标共振看涨。${reasons.slice(0, 3).join('；')}。建议考虑逢低建仓或持有现有仓位，同时设置合理的止损位。`;
+      } else if (strongSignals >= 1) {
+        recommendation = `当前技术指标显示看涨倾向。${reasons.slice(0, 2).join('；')}。建议谨慎做多，关注关键阻力位是否有效突破。`;
+      } else {
+        recommendation = `当前技术指标略微偏向看涨。${reasons.slice(0, 2).join('；')}。建议轻仓试探，等待更明确的信号确认。`;
+      }
+    } else if (bearishScore > bullishScore) {
+      overall = 'bearish';
+      confidence = Math.min(95, 50 + (bearishScore - bullishScore) * 10);
+      
+      const strongSignals = reasons.filter(r => r.includes('强烈')).length;
+      if (strongSignals >= 2) {
+        recommendation = `当前多项技术指标共振看空。${reasons.slice(0, 3).join('；')}。建议考虑减仓或观望，警惕进一步下跌风险。`;
+      } else if (strongSignals >= 1) {
+        recommendation = `当前技术指标显示看跌倾向。${reasons.slice(0, 2).join('；')}。建议注意风险控制，关注关键支撑位是否有效守住。`;
+      } else {
+        recommendation = `当前技术指标略微偏向看跌。${reasons.slice(0, 2).join('；')}。建议保持谨慎，等待更明确的信号确认。`;
+      }
+    } else {
+      overall = 'neutral';
+      confidence = 50;
+      recommendation = `当前技术指标信号相互矛盾，多空力量相对平衡。${reasons.slice(0, 2).join('；')}。建议保持观望，等待明确的趋势方向。`;
+    }
+
+    return {
+      overall,
+      confidence,
+      recommendation,
+      reasons,
+      rsi_analysis: {
+        signal: rsi.signal,
+        value: rsi.value,
+        interpretation: rsi.interpretation
+      },
+      macd_analysis: {
+        signal: macd.signal,
+        interpretation: macd.interpretation
+      },
+      sma_analysis: {
+        signal: sma.signal,
+        trend: sma.trend,
+        interpretation: sma.interpretation
+      }
+    };
+  }
+
+  private calculateSMASimple(prices: number[], period: number): number[] {
     const sma: number[] = [];
     
     for (let i = 0; i < prices.length; i++) {
@@ -43,7 +155,7 @@ export class TechnicalIndicatorsService {
     const ema: number[] = [];
     const multiplier = 2 / (period + 1);
     
-    const sma = this.calculateSMA(prices, period);
+    const sma = this.calculateSMASimple(prices, period);
     ema[period - 1] = sma[period - 1];
     
     for (let i = period; i < prices.length; i++) {
@@ -245,8 +357,8 @@ export class TechnicalIndicatorsService {
     const shortPeriod = this.SMA_SHORT_PERIOD;
     const longPeriod = this.SMA_LONG_PERIOD;
     
-    const sma10 = this.calculateSMA(prices, shortPeriod);
-    const sma30 = this.calculateSMA(prices, longPeriod);
+    const sma10 = this.calculateSMASimple(prices, shortPeriod);
+    const sma30 = this.calculateSMASimple(prices, longPeriod);
     
     const validSma10 = sma10.filter(v => !isNaN(v));
     const validSma30 = sma30.filter(v => !isNaN(v));

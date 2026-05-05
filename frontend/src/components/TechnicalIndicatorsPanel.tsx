@@ -97,12 +97,6 @@ function RSISection({ rsi }: { rsi: RSIIndicator }) {
     return signalMap[signal] || signal;
   };
 
-  const getBarColor = (value: number): string => {
-    if (value >= 70) return '#ef4444';
-    if (value <= 30) return '#22c55e';
-    return '#3b82f6';
-  };
-
   return (
     <CollapsibleSection
       title={`RSI (相对强弱指数) - 当前值: ${rsi.value.toFixed(2)}`}
@@ -334,11 +328,11 @@ function MACDSection({ macd }: { macd: MACDIndicator }) {
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
-            <span className="text-slate-400">柱状图 > 0</span>
+            <span className="text-slate-400">柱状图 {'>'} 0</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
-            <span className="text-slate-400">柱状图 < 0</span>
+            <span className="text-slate-400">柱状图 {'<'} 0</span>
           </div>
         </div>
 

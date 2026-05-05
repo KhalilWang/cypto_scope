@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { CoinGeckoService } from '../services/coingeckoService';
 import { TechnicalIndicatorsService } from '../services/technicalIndicators';
 import { NewsService } from '../services/newsService';
-import { ApiResponse, Coin, CoinDetail, TechnicalIndicators } from '../types';
+import { ApiResponse, Coin, CoinDetail, TechnicalIndicators, TradingSignal } from '../types';
 
 const router = Router();
 const coinGeckoService = new CoinGeckoService();
@@ -97,10 +97,13 @@ router.get('/:id', async (req: Request<{ id: string }>, res: Response<ApiRespons
       };
     }
     
+    const tradingSignal = technicalIndicatorsService.generateTradingSignal(technicalIndicators);
+    
     const coinDetail: CoinDetail = {
       ...marketData,
       priceHistory,
       technicalIndicators,
+      tradingSignal,
     };
     
     res.json({ success: true, data: coinDetail });

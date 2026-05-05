@@ -1,17 +1,42 @@
 import express from 'express';
 import cors from 'cors';
 import coinsRouter from './routes/coins';
+import favoritesRouter from './routes/favorites';
+import marketRouter from './routes/market';
+import { db } from './database';
 
 const app = express();
+const startTime = Date.now();
 
-app.use(cors());
+app.use(cors({
+  credentials: true,
+  origin: true
+}));
 app.use(express.json());
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  let dbStatus: 'connected' | 'disconnected' = 'disconnected';
+  
+  try {
+    db.prepare('SELECT 1').get();
+    dbStatus = 'connected';
+  } catch (error) {
+    console.error('Health check database error:', error);
+  }
+  
+  const uptime = Math.floor((Date.now() - startTime) / 1000);
+  
+  res.json({
+    status: dbStatus === 'connected' ? 'ok' : 'error',
+    timestamp: new Date().toISOString(),
+    database: dbStatus,
+    uptime
+  });
 });
 
 app.use('/api/coins', coinsRouter);
+app.use('/api/favorites', favoritesRouter);
+app.use('/api/market', marketRouter);
 
 app.use('*', (req, res) => {
   res.status(404).json({

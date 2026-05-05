@@ -7,6 +7,8 @@ import {
 import { PriceChart } from '../components/PriceChart';
 import { TechnicalIndicatorsPanel } from '../components/TechnicalIndicatorsPanel';
 import { NewsList } from '../components/NewsList';
+import { FavoriteButton } from '../components/FavoriteButton';
+import { TradingSignalCard } from '../components/TradingSignalCard';
 
 export function CoinDetail() {
   const { coinId } = useParams<{ coinId: string }>();
@@ -116,6 +118,7 @@ export function CoinDetail() {
                 <span className="px-2 py-1 bg-slate-700 rounded text-sm text-slate-300 uppercase">
                   {coinDetail.symbol}
                 </span>
+                <FavoriteButton coinId={coinDetail.id} size="lg" />
               </div>
               <p className="text-slate-400 mt-1">市值排名 #{coinDetail.market_cap_rank}</p>
             </div>
@@ -182,6 +185,10 @@ export function CoinDetail() {
           sma30={coinDetail.technicalIndicators.sma.sma30}
         />
       </div>
+
+      {coinDetail.tradingSignal && (
+        <TradingSignalCard signal={coinDetail.tradingSignal} />
+      )}
 
       <TechnicalIndicatorsPanel indicators={coinDetail.technicalIndicators} />
 
