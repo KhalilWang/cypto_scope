@@ -147,6 +147,8 @@ export class MarketService {
     const upCoinsCount = coins.filter(c => c.price_change_percentage_24h >= 0).length;
     const downCoinsCount = coins.filter(c => c.price_change_percentage_24h < 0).length;
 
+    const isMock = !cachedData || cachedData.total_market_cap === 0;
+    
     return {
       total_market_cap: cachedData?.total_market_cap || 0,
       total_volume: cachedData?.total_volume || 0,
@@ -157,6 +159,7 @@ export class MarketService {
       market_cap_change_percentage_24h_usd: cachedData?.market_cap_change_percentage_24h_usd || 0,
       up_coins_count: upCoinsCount,
       down_coins_count: downCoinsCount,
+      isMock,
     };
   }
 

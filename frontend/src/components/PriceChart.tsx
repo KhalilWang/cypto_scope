@@ -15,7 +15,7 @@ import { formatPrice, formatTimestamp } from '../utils/formatters';
 interface PriceChartProps {
   priceHistory: PriceHistoryPoint[];
   sma10: number[];
-  sma30: number[];
+  sma20: number[];
 }
 
 interface ChartDataPoint {
@@ -23,7 +23,7 @@ interface ChartDataPoint {
   date: string;
   price: number;
   sma10: number | null;
-  sma30: number | null;
+  sma20: number | null;
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -49,7 +49,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-export function PriceChart({ priceHistory, sma10, sma30 }: PriceChartProps) {
+export function PriceChart({ priceHistory, sma10, sma20 }: PriceChartProps) {
   const chartData = useMemo<ChartDataPoint[]>(() => {
     const dataPoints = priceHistory.slice(-60);
     
@@ -58,9 +58,9 @@ export function PriceChart({ priceHistory, sma10, sma30 }: PriceChartProps) {
       date: formatTimestamp(point.timestamp),
       price: point.price,
       sma10: !isNaN(sma10[index]) ? sma10[index] : null,
-      sma30: !isNaN(sma30[index]) ? sma30[index] : null,
+      sma20: !isNaN(sma20[index]) ? sma20[index] : null,
     }));
-  }, [priceHistory, sma10, sma30]);
+  }, [priceHistory, sma10, sma20]);
 
   if (chartData.length === 0) {
     return (
@@ -71,7 +71,7 @@ export function PriceChart({ priceHistory, sma10, sma30 }: PriceChartProps) {
   }
 
   const hasSma10 = chartData.some(d => d.sma10 !== null);
-  const hasSma30 = chartData.some(d => d.sma30 !== null);
+  const hasSma20 = chartData.some(d => d.sma20 !== null);
 
   return (
     <div className="w-full h-80 md:h-96">
@@ -130,11 +130,11 @@ export function PriceChart({ priceHistory, sma10, sma30 }: PriceChartProps) {
               connectNulls
             />
           )}
-          {hasSma30 && (
+          {hasSma20 && (
             <Line
               type="monotone"
-              dataKey="sma30"
-              name="SMA30"
+              dataKey="sma20"
+              name="SMA20"
               stroke="#f59e0b"
               strokeWidth={1.5}
               dot={false}

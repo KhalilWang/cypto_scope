@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { TradingSignal } from '../types';
+import type { TradingSignal, IndicatorAnalysis } from '../types';
 
 interface TradingSignalCardProps {
   signal: TradingSignal;
@@ -45,9 +45,60 @@ export function TradingSignalCard({ signal }: TradingSignalCardProps) {
       bearish: '看跌',
       golden_cross: '黄金交叉',
       death_cross: '死亡交叉',
+      squeeze: '收缩',
+      expanding: '扩张',
+      upper_touch: '触及上轨',
+      lower_touch: '触及下轨',
+      high_volatility: '高波动',
+      low_volatility: '低波动',
+      bullish_divergence: '看涨背离',
+      bearish_divergence: '看跌背离',
+      confirmation: '趋势确认',
     };
     return labels[type] || type;
   };
+
+  const getSignalColor = (signal: string): string => {
+    const bullishSignals = ['oversold', 'bullish_crossover', 'golden_cross', 'bullish', 'lower_touch', 'high_volatility', 'bullish_divergence'];
+    const bearishSignals = ['overbought', 'bearish_crossover', 'death_cross', 'bearish', 'upper_touch', 'squeeze', 'low_volatility', 'bearish_divergence', 'expanding'];
+    if (bullishSignals.includes(signal)) return 'text-green-400';
+    if (bearishSignals.includes(signal)) return 'text-red-400';
+    return 'text-slate-300';
+  };
+
+  const IndicatorCard = ({ 
+    title, 
+    icon, 
+    analysis 
+  }: { 
+    title: string; 
+    icon: string; 
+    analysis: IndicatorAnalysis 
+  }) => (
+    <div className="bg-slate-800 rounded-lg p-4">
+      <h4 className="text-white font-medium mb-2 flex items-center gap-2">
+        <span>{icon}</span> {title}
+      </h4>
+      <div className="space-y-1 text-sm">
+        {analysis.value !== undefined && (
+          <p className="text-slate-400">
+            当前值：<span className="text-white">{analysis.value.toFixed(2)}</span>
+          </p>
+        )}
+        <p className="text-slate-400">
+          信号：<span className={getSignalColor(analysis.signal)}>
+            {getSignalLabel(analysis.signal)}
+          </span>
+        </p>
+        <p className="text-slate-500 text-xs mt-2">
+          {analysis.interpretation}
+        </p>
+        <p className="text-slate-500 text-xs">
+          权重：{analysis.weight}
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <div className={`${config.bgColor} border-2 ${config.borderColor} rounded-xl overflow-hidden`}>
@@ -64,6 +115,9 @@ export function TradingSignalCard({ signal }: TradingSignalCardProps) {
               </h2>
               <p className="text-slate-400 text-sm mt-1">
                 置信度：{signal.confidence}%
+                {signal.isMock && (
+                  <span className="ml-2 text-amber-400 text-xs">(模拟数据)</span>
+                )}
               </p>
             </div>
           </div>
@@ -125,88 +179,41 @@ export function TradingSignalCard({ signal }: TradingSignalCardProps) {
               </ul>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-slate-800 rounded-lg p-4">
-                <h4 className="text-white font-medium mb-2 flex items-center gap-2">
-                  <span>📊</span> RSI 分析
-                </h4>
-                <div className="space-y-1 text-sm">
-                  <p className="text-slate-400">
-                    当前值：<span className="text-white">{signal.rsi_analysis.value.toFixed(2)}</span>
-                  </p>
-                  <p className="text-slate-400">
-                    信号：<span className={`${
-                      signal.rsi_analysis.signal === 'oversold'
-                        ? 'text-green-400'
-                        : signal.rsi_analysis.signal === 'overbought'
-                        ? 'text-red-400'
-                        : 'text-slate-300'
-                    }`}>
-                      {getSignalLabel(signal.rsi_analysis.signal)}
-                    </span>
-                  </p>
-                  <p className="text-slate-500 text-xs mt-2">
-                    {signal.rsi_analysis.interpretation}
-                  </p>
+            <div className="border-t border-slate-600 pt-4">
+              <h3 className="text-white font-semibold mb-3">📊 12 个技术指标详细分析</h3>
+              
+              <div className="mb-4">
+                <h4 className="text-slate-300 text-sm font-medium mb-2">动量指标 (Momentum Indicators)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <IndicatorCard title="RSI (相对强弱指数)" icon="📈" analysis={signal.indicatorsAnalysis.rsi} />
+                  <IndicatorCard title="CCI (顺势指标)" icon="🔄" analysis={signal.indicatorsAnalysis.cci} />
+                  <IndicatorCard title="威廉指标 (%R)" icon="📉" analysis={signal.indicatorsAnalysis.williamsR} />
+                  <IndicatorCard title="慢速随机指标" icon="⚡" analysis={signal.indicatorsAnalysis.stoch} />
                 </div>
               </div>
 
-              <div className="bg-slate-800 rounded-lg p-4">
-                <h4 className="text-white font-medium mb-2 flex items-center gap-2">
-                  <span>📈</span> MACD 分析
-                </h4>
-                <div className="space-y-1 text-sm">
-                  <p className="text-slate-400">
-                    信号：<span className={`${
-                      signal.macd_analysis.signal === 'bullish_crossover' || signal.macd_analysis.signal === 'bullish'
-                        ? 'text-green-400'
-                        : signal.macd_analysis.signal === 'bearish_crossover' || signal.macd_analysis.signal === 'bearish'
-                        ? 'text-red-400'
-                        : 'text-slate-300'
-                    }`}>
-                      {getSignalLabel(signal.macd_analysis.signal)}
-                    </span>
-                  </p>
-                  <p className="text-slate-500 text-xs mt-2">
-                    {signal.macd_analysis.interpretation}
-                  </p>
+              <div className="mb-4">
+                <h4 className="text-slate-300 text-sm font-medium mb-2">趋势指标 (Trend Indicators)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <IndicatorCard title="MACD" icon="📊" analysis={signal.indicatorsAnalysis.macd} />
+                  <IndicatorCard title="SMA (简单移动平均线)" icon="〰️" analysis={signal.indicatorsAnalysis.sma} />
+                  <IndicatorCard title="EMA (指数移动平均线)" icon="📈" analysis={signal.indicatorsAnalysis.ema} />
                 </div>
               </div>
 
-              <div className="bg-slate-800 rounded-lg p-4">
-                <h4 className="text-white font-medium mb-2 flex items-center gap-2">
-                  <span>📉</span> SMA 分析
-                </h4>
-                <div className="space-y-1 text-sm">
-                  <p className="text-slate-400">
-                    信号：<span className={`${
-                      signal.sma_analysis.signal === 'golden_cross' || signal.sma_analysis.signal === 'bullish'
-                        ? 'text-green-400'
-                        : signal.sma_analysis.signal === 'death_cross' || signal.sma_analysis.signal === 'bearish'
-                        ? 'text-red-400'
-                        : 'text-slate-300'
-                    }`}>
-                      {getSignalLabel(signal.sma_analysis.signal)}
-                    </span>
-                  </p>
-                  <p className="text-slate-400">
-                    趋势：<span className={`${
-                      signal.sma_analysis.trend === 'bullish'
-                        ? 'text-green-400'
-                        : signal.sma_analysis.trend === 'bearish'
-                        ? 'text-red-400'
-                        : 'text-slate-300'
-                    }`}>
-                      {signal.sma_analysis.trend === 'bullish'
-                        ? '上涨'
-                        : signal.sma_analysis.trend === 'bearish'
-                        ? '下跌'
-                        : '震荡'}
-                    </span>
-                  </p>
-                  <p className="text-slate-500 text-xs mt-2">
-                    {signal.sma_analysis.interpretation}
-                  </p>
+              <div className="mb-4">
+                <h4 className="text-slate-300 text-sm font-medium mb-2">波动率指标 (Volatility Indicators)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <IndicatorCard title="布林带" icon="📊" analysis={signal.indicatorsAnalysis.bollinger} />
+                  <IndicatorCard title="ATR (平均真实波幅)" icon="📏" analysis={signal.indicatorsAnalysis.atr} />
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-slate-300 text-sm font-medium mb-2">综合指标 (Hybrid Indicators)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <IndicatorCard title="KDJ (随机指标)" icon="⚡" analysis={signal.indicatorsAnalysis.kdj} />
+                  <IndicatorCard title="OBV (能量潮)" icon="💧" analysis={signal.indicatorsAnalysis.obv} />
                 </div>
               </div>
             </div>

@@ -205,7 +205,7 @@ export function CoinList({ coins, loading, error }: CoinListProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-dark-800/50">
-              {sortedCoins.map((coin, index) => {
+              {sortedCoins.map((coin) => {
                 const isPositive = coin.price_change_percentage_24h >= 0;
                 
                 return (

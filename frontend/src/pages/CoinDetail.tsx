@@ -182,7 +182,7 @@ export function CoinDetail() {
         <PriceChart 
           priceHistory={coinDetail.priceHistory}
           sma10={coinDetail.technicalIndicators.sma.sma10}
-          sma30={coinDetail.technicalIndicators.sma.sma30}
+          sma20={coinDetail.technicalIndicators.sma.sma20}
         />
       </div>
 
