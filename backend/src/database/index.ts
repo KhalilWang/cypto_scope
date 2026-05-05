@@ -106,4 +106,35 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    coin_id TEXT NOT NULL,
+    coin_name TEXT,
+    coin_symbol TEXT,
+    alert_type TEXT NOT NULL,
+    target_price REAL NOT NULL,
+    current_price_at_creation REAL,
+    is_active INTEGER DEFAULT 1,
+    is_triggered INTEGER DEFAULT 0,
+    triggered_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (coin_id) REFERENCES coins(id)
+  )
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_alerts_session_id ON alerts(session_id)
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_alerts_coin_id ON alerts(coin_id)
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_alerts_active ON alerts(is_active)
+`);
+
 export default db;

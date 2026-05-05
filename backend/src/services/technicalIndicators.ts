@@ -938,13 +938,14 @@ export class TechnicalIndicatorsService {
     };
   }
 
-  private calculateRSI(prices: number[]): RSIIndicator {
-    const period = this.RSI_PERIOD;
+  private calculateRSIForPeriod(prices: number[], period: number): {
+    value: number;
+    historicalValues: number[];
+    signal: 'overbought' | 'oversold' | 'neutral';
+  } {
     const rsiValues: number[] = [];
     
     for (let i = 1; i < prices.length; i++) {
-      const delta = prices[i] - prices[i - 1];
-      
       if (i < period) {
         rsiValues.push(NaN);
         continue;
@@ -987,35 +988,81 @@ export class TechnicalIndicatorsService {
     const currentRsi = validRsi.length > 0 ? validRsi[validRsi.length - 1] : 50;
     
     let signal: 'overbought' | 'oversold' | 'neutral';
-    let interpretation: string;
     
     if (currentRsi >= 70) {
       signal = 'overbought';
-      interpretation = `当前 RSI 为 ${currentRsi.toFixed(2)}，处于超买区域（>=70），市场可能面临回调压力。RSI 越高，回调风险越大。但在强势上升趋势中，RSI 可能长期处于超买区域，需结合其他指标判断。建议关注是否出现背离信号。`;
     } else if (currentRsi <= 30) {
       signal = 'oversold';
-      interpretation = `当前 RSI 为 ${currentRsi.toFixed(2)}，处于超卖区域（<=30），市场可能存在反弹机会。RSI 越低，反弹概率越大。但在强势下降趋势中，RSI 可能长期处于超卖区域，需结合其他指标判断。建议关注是否出现背离信号。`;
-    } else if (currentRsi >= 60) {
-      signal = 'neutral';
-      interpretation = `当前 RSI 为 ${currentRsi.toFixed(2)}，接近超买区域（60-70），市场偏强但尚未进入明显超买状态。需关注是否会进一步进入超买区域（>=70），或回落至中性区域。若 RSI 持续上升，可能预示趋势延续。`;
-    } else if (currentRsi <= 40) {
-      signal = 'neutral';
-      interpretation = `当前 RSI 为 ${currentRsi.toFixed(2)}，接近超卖区域（30-40），市场偏弱但尚未进入明显超卖状态。需关注是否会进一步进入超卖区域（<=30），或回升至中性区域。若 RSI 持续下降，可能预示趋势延续。`;
     } else {
       signal = 'neutral';
-      interpretation = `当前 RSI 为 ${currentRsi.toFixed(2)}，处于中性区域（40-60），市场情绪相对平衡，没有明显的超买或超卖信号。RSI 在中性区域时，通常需要结合其他指标（如 MACD、均线系统）来判断趋势方向。`;
+    }
+    
+    return {
+      value: currentRsi,
+      historicalValues: rsiValues,
+      signal,
+    };
+  }
+
+  private calculateRSI(prices: number[]): RSIIndicator {
+    const period = this.RSI_PERIOD;
+    
+    const rsi7Result = this.calculateRSIForPeriod(prices, 7);
+    const rsi14Result = this.calculateRSIForPeriod(prices, 14);
+    const rsi24Result = this.calculateRSIForPeriod(prices, 24);
+    
+    const primaryResult = rsi14Result;
+    const currentRsi = primaryResult.value;
+    
+    let interpretation: string;
+    
+    const rsi7Status = rsi7Result.signal === 'overbought' ? '超买' : 
+                       rsi7Result.signal === 'oversold' ? '超卖' : '中性';
+    const rsi14Status = rsi14Result.signal === 'overbought' ? '超买' : 
+                        rsi14Result.signal === 'oversold' ? '超卖' : '中性';
+    const rsi24Status = rsi24Result.signal === 'overbought' ? '超买' : 
+                        rsi24Result.signal === 'oversold' ? '超卖' : '中性';
+    
+    if (currentRsi >= 70) {
+      interpretation = `RSI 多周期分析：RSI7=${rsi7Result.value.toFixed(2)}(${rsi7Status}), RSI14=${rsi14Result.value.toFixed(2)}(${rsi14Status}), RSI24=${rsi24Result.value.toFixed(2)}(${rsi24Status})。RSI14 处于超买区域（>=70），市场可能面临回调压力。短期 RSI7 已进入超买，中期 RSI14 也超买，长期 RSI24 ${rsi24Status === '超买' ? '同样超买' : '尚未超买'}，需警惕回调风险。但在强势上升趋势中，RSI 可能长期处于超买区域，需结合其他指标判断。`;
+    } else if (currentRsi <= 30) {
+      interpretation = `RSI 多周期分析：RSI7=${rsi7Result.value.toFixed(2)}(${rsi7Status}), RSI14=${rsi14Result.value.toFixed(2)}(${rsi14Status}), RSI24=${rsi24Result.value.toFixed(2)}(${rsi24Status})。RSI14 处于超卖区域（<=30），市场可能存在反弹机会。短期 RSI7 已超卖，中期 RSI14 也超卖，长期 RSI24 ${rsi24Status === '超卖' ? '同样超卖' : '尚未超卖'}，可能存在反弹机会。但在强势下降趋势中，RSI 可能长期处于超卖区域，需结合其他指标判断。`;
+    } else if (currentRsi >= 60) {
+      interpretation = `RSI 多周期分析：RSI7=${rsi7Result.value.toFixed(2)}(${rsi7Status}), RSI14=${rsi14Result.value.toFixed(2)}(${rsi14Status}), RSI24=${rsi24Result.value.toFixed(2)}(${rsi24Status})。RSI14 接近超买区域（60-70），市场偏强但尚未进入明显超买状态。短期 RSI7 显示 ${rsi7Status}，中期 RSI14 偏强，长期 RSI24 ${rsi24Status === '超买' ? '已超买' : '尚在安全区'}。需关注是否会进一步进入超买区域，或回落至中性区域。`;
+    } else if (currentRsi <= 40) {
+      interpretation = `RSI 多周期分析：RSI7=${rsi7Result.value.toFixed(2)}(${rsi7Status}), RSI14=${rsi14Result.value.toFixed(2)}(${rsi14Status}), RSI24=${rsi24Result.value.toFixed(2)}(${rsi24Status})。RSI14 接近超卖区域（30-40），市场偏弱但尚未进入明显超卖状态。短期 RSI7 显示 ${rsi7Status}，中期 RSI14 偏弱，长期 RSI24 ${rsi24Status === '超卖' ? '已超卖' : '尚在安全区'}。需关注是否会进一步进入超卖区域，或回升至中性区域。`;
+    } else {
+      interpretation = `RSI 多周期分析：RSI7=${rsi7Result.value.toFixed(2)}(${rsi7Status}), RSI14=${rsi14Result.value.toFixed(2)}(${rsi14Status}), RSI24=${rsi24Result.value.toFixed(2)}(${rsi24Status})。RSI14 处于中性区域（40-60），市场情绪相对平衡，没有明显的超买或超卖信号。短期 RSI7 显示 ${rsi7Status}，中期 RSI14 中性，长期 RSI24 ${rsi24Status}。RSI 在中性区域时，通常需要结合其他指标（如 MACD、均线系统）来判断趋势方向。`;
     }
     
     return {
       value: currentRsi,
       period,
-      signal,
+      signal: primaryResult.signal,
       interpretation,
-      historicalValues: rsiValues,
+      historicalValues: primaryResult.historicalValues,
       reference: {
         overboughtThreshold: 70,
         oversoldThreshold: 30,
-        description: 'RSI（相对强弱指数）由 Welles Wilder 发明，衡量价格上涨和下跌动量的相对强度。取值范围 0-100。是最常用的动量指标之一。',
+        description: 'RSI（相对强弱指数）由 Welles Wilder 发明，衡量价格上涨和下跌动量的相对强度。取值范围 0-100。是最常用的动量指标之一。提供三个周期：RSI7（短期敏感）、RSI14（标准）、RSI24（长期平滑）。',
+      },
+      rsi7: {
+        period: 7,
+        value: rsi7Result.value,
+        signal: rsi7Result.signal,
+        historicalValues: rsi7Result.historicalValues,
+      },
+      rsi14: {
+        period: 14,
+        value: rsi14Result.value,
+        signal: rsi14Result.signal,
+        historicalValues: rsi14Result.historicalValues,
+      },
+      rsi24: {
+        period: 24,
+        value: rsi24Result.value,
+        signal: rsi24Result.signal,
+        historicalValues: rsi24Result.historicalValues,
       },
     };
   }

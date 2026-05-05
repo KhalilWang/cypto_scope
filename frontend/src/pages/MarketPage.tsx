@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { MarketOverview } from '../types';
-import { marketApi } from '../services/api';
+import type { MarketOverview, ApiHealthStatus } from '../types';
+import { marketApi, healthApi } from '../services/api';
 
 function formatLargeNumber(num: number): string {
   if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
@@ -140,6 +140,7 @@ function MarketSkeleton() {
 
 export function MarketPage() {
   const [marketData, setMarketData] = useState<MarketOverview | null>(null);
+  const [healthStatus, setHealthStatus] = useState<ApiHealthStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -156,8 +157,18 @@ export function MarketPage() {
     }
   };
 
+  const fetchHealthStatus = async () => {
+    try {
+      const status = await healthApi.getStatus();
+      setHealthStatus(status);
+    } catch (err) {
+      console.error('Failed to fetch health status:', err);
+    }
+  };
+
   useEffect(() => {
     fetchMarketData();
+    fetchHealthStatus();
   }, []);
 
   if (loading) {
@@ -213,9 +224,38 @@ export function MarketPage() {
               实时查看全球加密货币市场数据，包括总市值、交易量、市场占比和涨跌统计
             </p>
           </div>
-          <div className="flex items-center gap-2 text-sm text-dark-600">
-            <span className="w-2 h-2 bg-success rounded-full animate-pulse"></span>
-            <span>数据更新中</span>
+          <div className="flex flex-col items-end gap-2">
+            {healthStatus && (
+              <div className="flex items-center gap-2 bg-dark-900 rounded-lg px-3 py-2">
+                <span className={`w-2 h-2 rounded-full ${
+                  healthStatus.dataSource === 'realtime' 
+                    ? 'bg-success animate-pulse' 
+                    : healthStatus.dataSource === 'cached' 
+                    ? 'bg-warning' 
+                    : 'bg-danger'
+                }`}></span>
+                <span className="text-sm">
+                  {healthStatus.dataSource === 'realtime' && (
+                    <span className="text-success">🟢 实时数据</span>
+                  )}
+                  {healthStatus.dataSource === 'cached' && (
+                    <span className="text-warning">🟡 缓存数据</span>
+                  )}
+                  {healthStatus.dataSource === 'mock' && (
+                    <span className="text-danger">🔴 模拟数据</span>
+                  )}
+                </span>
+              </div>
+            )}
+            {healthStatus && (
+              <div className="text-xs text-dark-600">
+                {healthStatus.lastSuccessfulApiCall ? (
+                  <span>上次成功更新: {new Date(healthStatus.lastSuccessfulApiCall).toLocaleString('zh-CN')}</span>
+                ) : (
+                  <span>数据来源: CoinGecko API (当前不可用)</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

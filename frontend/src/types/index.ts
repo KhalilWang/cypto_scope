@@ -333,3 +333,81 @@ export interface IndicatorAnalysis {
   interpretation: string;
   weight: number;
 }
+
+export interface RSIPeriodValue {
+  period: number;
+  value: number;
+  signal: 'overbought' | 'oversold' | 'neutral';
+  historicalValues: number[];
+}
+
+export interface RSIIndicator {
+  value: number;
+  period: number;
+  signal: 'overbought' | 'oversold' | 'neutral';
+  interpretation: string;
+  historicalValues: number[];
+  reference: {
+    overboughtThreshold: number;
+    oversoldThreshold: number;
+    description: string;
+  };
+  rsi7: RSIPeriodValue;
+  rsi14: RSIPeriodValue;
+  rsi24: RSIPeriodValue;
+}
+
+export interface Alert {
+  id: number;
+  session_id: string;
+  coin_id: string;
+  coin_name?: string;
+  coin_symbol?: string;
+  alert_type: 'price_above' | 'price_below';
+  target_price: number;
+  current_price_at_creation?: number;
+  is_active: boolean;
+  is_triggered: boolean;
+  triggered_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AlertWithCoin extends Alert {
+  current_price: number;
+  price_change_percentage_24h: number;
+  image: string;
+}
+
+export interface CoinComparison {
+  coins: string[];
+  priceHistories: {
+    coinId: string;
+    coinName: string;
+    coinSymbol: string;
+    priceHistory: PriceHistoryPoint[];
+  }[];
+  correlationMatrix: number[][];
+  similarities: {
+    coinPair: [string, string];
+    correlation: number;
+    interpretation: string;
+  }[];
+}
+
+export interface ApiHealthStatus {
+  apiAvailable: boolean;
+  usingMockData: boolean;
+  lastSuccessfulApiCall: string | null;
+  dataSource: 'realtime' | 'cached' | 'mock';
+  lastDataRefresh: string;
+}
+
+export type TimeRange = '15m' | '1h' | '4h' | '1d' | '7d' | '30d' | '90d';
+
+export interface TimeRangeOption {
+  key: TimeRange;
+  label: string;
+  days: number;
+  interval: string;
+}

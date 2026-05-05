@@ -1,21 +1,55 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
-import type { Coin } from './types';
-import { coinApi } from './services/api';
+import type { Coin, Alert } from './types';
+import { coinApi, alertsApi } from './services/api';
 import { CoinList } from './pages/CoinList';
 import { CoinDetail } from './pages/CoinDetail';
 import { FavoritesPage } from './pages/FavoritesPage';
 import { MarketPage } from './pages/MarketPage';
+import { AlertsPage } from './pages/AlertsPage';
+import { ComparisonPage } from './pages/ComparisonPage';
 
 function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [hasTriggeredAlerts, setHasTriggeredAlerts] = useState(false);
   const location = useLocation();
 
   const navItems = [
-    { path: '/', label: '市场行情', icon: '📊' },
-    { path: '/market', label: '市场概览', icon: '🌐' },
-    { path: '/favorites', label: '我的收藏', icon: '⭐' },
+    { path: '/', label: '市场行情', icon: '📊', hasBadge: false },
+    { path: '/market', label: '市场概览', icon: '🌐', hasBadge: false },
+    { path: '/comparison', label: '币种对比', icon: '📈', hasBadge: false },
+    { path: '/favorites', label: '我的收藏', icon: '⭐', hasBadge: false },
+    { path: '/alerts', label: '价格告警', icon: '🔔', hasBadge: hasTriggeredAlerts },
   ];
+
+  useEffect(() => {
+    const checkAlerts = async () => {
+      try {
+        const { triggered } = await alertsApi.check();
+        if (triggered.length > 0) {
+          setHasTriggeredAlerts(true);
+          
+          if ('Notification' in window && Notification.permission === 'granted') {
+            triggered.forEach((alert: Alert) => {
+              new Notification(`${alert.coin_name} 价格告警`, {
+                body: alert.alert_type === 'price_above' 
+                  ? `${alert.coin_name} 已上涨至目标价格 ${alert.target_price}`
+                  : `${alert.coin_name} 已下跌至目标价格 ${alert.target_price}`,
+                icon: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cryptocurrency%20alert%20icon&image_size=square'
+              });
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check alerts:', err);
+      }
+    };
+
+    checkAlerts();
+    const interval = setInterval(checkAlerts, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const isActive = useCallback(
     (path: string) => {
@@ -49,7 +83,7 @@ function Header() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   isActive(item.path)
                     ? 'bg-primary/15 text-primary shadow-sm'
                     : 'text-slate-400 hover:text-white hover:bg-dark-800'
@@ -57,6 +91,9 @@ function Header() {
               >
                 <span>{item.icon}</span>
                 <span>{item.label}</span>
+                {item.hasBadge && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-danger rounded-full animate-pulse"></span>
+                )}
               </Link>
             ))}
           </nav>
@@ -102,7 +139,12 @@ function Header() {
                     : 'text-slate-400 hover:text-white hover:bg-dark-800'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
+                <span className="text-lg relative">
+                  {item.icon}
+                  {item.hasBadge && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-danger rounded-full animate-pulse"></span>
+                  )}
+                </span>
                 <span>{item.label}</span>
                 {isActive(item.path) && (
                   <span className="ml-auto w-1.5 h-1.5 bg-primary rounded-full"></span>
@@ -252,7 +294,9 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/market" element={<MarketPage />} />
+          <Route path="/comparison" element={<ComparisonPage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/coin/:coinId" element={<CoinDetail />} />
         </Routes>
         <Footer />

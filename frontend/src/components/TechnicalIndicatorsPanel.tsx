@@ -119,22 +119,82 @@ function getSignalDisplay(signal: string): string {
 }
 
 function RSISection({ rsi }: { rsi: RSIIndicator }) {
+  const [selectedPeriod, setSelectedPeriod] = useState<'rsi7' | 'rsi14' | 'rsi24'>('rsi14');
+
   const chartData = useMemo(() => {
-    const validValues = rsi.historicalValues.filter(v => !isNaN(v)).slice(-30);
+    const selectedData = rsi[selectedPeriod];
+    const validValues = selectedData.historicalValues.filter(v => !isNaN(v)).slice(-30);
     return validValues.map((value, index) => ({
       index,
       value: Math.round(value * 100) / 100,
     }));
-  }, [rsi.historicalValues]);
+  }, [rsi, selectedPeriod]);
+
+  const getStatusColor = (signal: string) => {
+    if (signal === 'overbought') return 'text-red-400 bg-red-400/10';
+    if (signal === 'oversold') return 'text-green-400 bg-green-400/10';
+    return 'text-slate-400 bg-slate-700';
+  };
+
+  const getStatusText = (signal: string) => {
+    if (signal === 'overbought') return '超买';
+    if (signal === 'oversold') return '超卖';
+    return '中性';
+  };
 
   return (
     <CollapsibleSection
-      title={`RSI (相对强弱指数) - 当前值: ${rsi.value.toFixed(2)}`}
+      title={`RSI (相对强弱指数) - RSI7: ${rsi.rsi7.value.toFixed(2)} | RSI14: ${rsi.rsi14.value.toFixed(2)} | RSI24: ${rsi.rsi24.value.toFixed(2)}`}
       signal={getSignalDisplay(rsi.signal)}
       signalType={getSignalType(rsi.signal)}
       defaultOpen={true}
     >
       <div className="space-y-6">
+        <div className="grid grid-cols-3 gap-4">
+          <button
+            onClick={() => setSelectedPeriod('rsi7')}
+            className={`p-4 rounded-lg border-2 transition-all ${
+              selectedPeriod === 'rsi7'
+                ? 'border-blue-500 bg-blue-500/10'
+                : 'border-slate-700 bg-slate-900 hover:border-slate-600'
+            }`}
+          >
+            <div className="text-xs text-slate-400 mb-1">RSI7 (短期敏感)</div>
+            <div className="text-xl font-bold text-white">{rsi.rsi7.value.toFixed(2)}</div>
+            <div className={`mt-2 px-2 py-0.5 rounded-full text-xs inline-block ${getStatusColor(rsi.rsi7.signal)}`}>
+              {getStatusText(rsi.rsi7.signal)}
+            </div>
+          </button>
+          <button
+            onClick={() => setSelectedPeriod('rsi14')}
+            className={`p-4 rounded-lg border-2 transition-all ${
+              selectedPeriod === 'rsi14'
+                ? 'border-blue-500 bg-blue-500/10'
+                : 'border-slate-700 bg-slate-900 hover:border-slate-600'
+            }`}
+          >
+            <div className="text-xs text-slate-400 mb-1">RSI14 (标准周期)</div>
+            <div className="text-xl font-bold text-white">{rsi.rsi14.value.toFixed(2)}</div>
+            <div className={`mt-2 px-2 py-0.5 rounded-full text-xs inline-block ${getStatusColor(rsi.rsi14.signal)}`}>
+              {getStatusText(rsi.rsi14.signal)}
+            </div>
+          </button>
+          <button
+            onClick={() => setSelectedPeriod('rsi24')}
+            className={`p-4 rounded-lg border-2 transition-all ${
+              selectedPeriod === 'rsi24'
+                ? 'border-blue-500 bg-blue-500/10'
+                : 'border-slate-700 bg-slate-900 hover:border-slate-600'
+            }`}
+          >
+            <div className="text-xs text-slate-400 mb-1">RSI24 (长期平滑)</div>
+            <div className="text-xl font-bold text-white">{rsi.rsi24.value.toFixed(2)}</div>
+            <div className={`mt-2 px-2 py-0.5 rounded-full text-xs inline-block ${getStatusColor(rsi.rsi24.signal)}`}>
+              {getStatusText(rsi.rsi24.signal)}
+            </div>
+          </button>
+        </div>
+
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
@@ -146,6 +206,7 @@ function RSISection({ rsi }: { rsi: RSIIndicator }) {
               <ReferenceLine y={50} stroke="#64748b" strokeDasharray="3 3" />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px' }}
+                formatter={(value: number) => [`${value.toFixed(2)}`, selectedPeriod.toUpperCase()]}
               />
               <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} dot={false} />
             </LineChart>
@@ -156,12 +217,30 @@ function RSISection({ rsi }: { rsi: RSIIndicator }) {
           <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-red-500"></div><span className="text-slate-400">超买线 (70)</span></div>
           <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-green-500"></div><span className="text-slate-400">超卖线 (30)</span></div>
           <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-slate-500"></div><span className="text-slate-400">中轴线 (50)</span></div>
+          <div className="flex items-center gap-2 ml-4">
+            <span className="text-slate-400">当前显示：</span>
+            <span className="text-blue-400 font-medium">{selectedPeriod.toUpperCase()}</span>
+          </div>
         </div>
 
         <div className="bg-slate-900 rounded-lg p-4">
           <h4 className="font-medium text-white mb-3">📊 指标说明</h4>
           <div className="space-y-3 text-sm text-slate-300">
-            <p><strong className="text-white">RSI (相对强弱指数)</strong> 是一种动量振荡器，通过计算一定周期内（默认 {rsi.period} 日）的平均上涨幅度和平均下跌幅度来衡量价格变动的速度和幅度。</p>
+            <p><strong className="text-white">RSI (相对强弱指数)</strong> 是一种动量振荡器，通过计算一定周期内的平均上涨幅度和平均下跌幅度来衡量价格变动的速度和幅度。提供三个周期用于对比分析：</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+              <div className="bg-slate-800 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2"><span className="text-cyan-400">●</span><span className="font-medium text-white">RSI7 - 短期敏感</span></div>
+                <p className="text-xs text-slate-400">7 日周期，对价格变化更敏感，能更快捕捉短期趋势反转，但也更容易产生虚假信号。适合短线交易者。</p>
+              </div>
+              <div className="bg-slate-800 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2"><span className="text-blue-400">●</span><span className="font-medium text-white">RSI14 - 标准周期</span></div>
+                <p className="text-xs text-slate-400">14 日周期，Welles Wilder 发明的标准周期。在敏感性和稳定性之间取得平衡，是最常用的周期设置。</p>
+              </div>
+              <div className="bg-slate-800 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2"><span className="text-purple-400">●</span><span className="font-medium text-white">RSI24 - 长期平滑</span></div>
+                <p className="text-xs text-slate-400">24 日周期，更长的周期使信号更平滑，减少噪音，但滞后性也更强。适合中长线投资者判断主要趋势。</p>
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
               <div className="bg-slate-800 rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-2"><span className="text-green-400">●</span><span className="font-medium text-white">超卖区域 (≤ 30)</span></div>
@@ -172,8 +251,8 @@ function RSISection({ rsi }: { rsi: RSIIndicator }) {
                 <p className="text-xs text-slate-400">通常被视为卖出信号，表明价格可能被过度买入，存在回调风险。</p>
               </div>
               <div className="bg-slate-800 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2"><span className="text-blue-400">●</span><span className="font-medium text-white">中性区域 (30-70)</span></div>
-                <p className="text-xs text-slate-400">市场情绪相对平衡，没有明显的超买或超卖信号。</p>
+                <div className="flex items-center gap-2 mb-2"><span className="text-blue-400">●</span><span className="font-medium text-white">多周期共振</span></div>
+                <p className="text-xs text-slate-400">当 RSI7、RSI14、RSI24 同时进入超买/超卖区域时，信号更可靠。周期越大，趋势越强。</p>
               </div>
             </div>
             <div className="mt-4 p-3 bg-blue-500/10 rounded-lg border-l-4 border-blue-500">

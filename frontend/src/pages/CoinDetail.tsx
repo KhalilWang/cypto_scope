@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { CoinDetail, NewsArticle } from '../types';
-import { coinApi } from '../services/api';
+import type { CoinDetail, NewsArticle, ApiHealthStatus } from '../types';
+import { coinApi, healthApi } from '../services/api';
 import { 
   formatPrice, formatMarketCap, formatVolume, formatPercentage, formatSupply } from '../utils/formatters';
 import { PriceChart } from '../components/PriceChart';
 import { TechnicalIndicatorsPanel } from '../components/TechnicalIndicatorsPanel';
+import { TradingViewIndicators } from '../components/TradingViewIndicators';
 import { NewsList } from '../components/NewsList';
 import { FavoriteButton } from '../components/FavoriteButton';
 import { TradingSignalCard } from '../components/TradingSignalCard';
@@ -15,9 +16,20 @@ export function CoinDetail() {
   const navigate = useNavigate();
   const [coinDetail, setCoinDetail] = useState<CoinDetail | null>(null);
   const [news, setNews] = useState<NewsArticle[]>([]);
+  const [healthStatus, setHealthStatus] = useState<ApiHealthStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newsLoading, setNewsLoading] = useState(true);
+  const [indicatorsView, setIndicatorsView] = useState<'overview' | 'detail'>('overview');
+
+  const fetchHealthStatus = async () => {
+    try {
+      const status = await healthApi.getStatus();
+      setHealthStatus(status);
+    } catch (err) {
+      console.error('Failed to fetch health status:', err);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -29,6 +41,7 @@ export function CoinDetail() {
       try {
         const detail = await coinApi.getDetail(coinId);
         setCoinDetail(detail);
+        fetchHealthStatus();
       } catch (err) {
         setError(err instanceof Error ? err.message : '获取币种详情失败');
       } finally {
@@ -125,12 +138,65 @@ export function CoinDetail() {
           </div>
 
           <div className="text-left lg:text-right">
+            <div className="flex items-center justify-end gap-3 mb-1">
+              {healthStatus && (
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border ${
+                  healthStatus.dataSource === 'realtime' 
+                    ? 'bg-green-500/15 text-green-400 border-green-500/30' 
+                    : healthStatus.dataSource === 'cached' 
+                    ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' 
+                    : 'bg-red-500/15 text-red-400 border-red-500/30'
+                }`}>
+                  <span className={`w-2.5 h-2.5 rounded-full ${
+                    healthStatus.dataSource === 'realtime' 
+                      ? 'bg-green-400 animate-pulse' 
+                      : healthStatus.dataSource === 'cached' 
+                      ? 'bg-yellow-400' 
+                      : 'bg-red-400'
+                  }`}></span>
+                  {healthStatus.dataSource === 'realtime' && '🟢 实时数据'}
+                  {healthStatus.dataSource === 'cached' && '🟡 缓存数据'}
+                  {healthStatus.dataSource === 'mock' && '🔴 模拟数据'}
+                </div>
+              )}
+            </div>
             <div className="text-3xl font-bold text-white">
               {formatPrice(coinDetail.current_price)}
             </div>
             <div className={`text-lg font-medium mt-1 ${isPositive24h ? 'text-green-400' : 'text-red-400'}`}>
               24h: {formatPercentage(coinDetail.price_change_percentage_24h)}
             </div>
+            {healthStatus && (
+              <div className="mt-3 flex flex-col items-end gap-1">
+                {coinDetail.last_updated && (
+                  <div className={`text-xs px-2 py-0.5 rounded ${
+                    healthStatus.dataSource === 'realtime' 
+                      ? 'text-green-400' 
+                      : healthStatus.dataSource === 'cached' 
+                      ? 'text-yellow-400' 
+                      : 'text-red-400'
+                  }`}>
+                    更新时间: {new Date(coinDetail.last_updated).toLocaleString('zh-CN')}
+                  </div>
+                )}
+                {healthStatus.dataSource !== 'realtime' && healthStatus.lastSuccessfulApiCall && (
+                  <div className="text-xs text-slate-500">
+                    上次实时更新: {new Date(healthStatus.lastSuccessfulApiCall).toLocaleString('zh-CN')}
+                  </div>
+                )}
+                {healthStatus.dataSource !== 'realtime' && (
+                  <div className={`text-xs px-2 py-1 rounded mt-1 ${
+                    healthStatus.dataSource === 'cached' 
+                      ? 'bg-yellow-500/10 text-yellow-500' 
+                      : 'bg-red-500/10 text-red-500'
+                  }`}>
+                    {healthStatus.dataSource === 'cached' 
+                      ? '⚠️ 网络延迟，当前使用缓存数据' 
+                      : '⚠️ CoinGecko API 不可用，当前使用模拟数据'}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -190,7 +256,40 @@ export function CoinDetail() {
         <TradingSignalCard signal={coinDetail.tradingSignal} />
       )}
 
-      <TechnicalIndicatorsPanel indicators={coinDetail.technicalIndicators} />
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-white">技术指标</h2>
+        <div className="flex items-center gap-2 bg-slate-800 rounded-lg p-1">
+          <button
+            onClick={() => setIndicatorsView('overview')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              indicatorsView === 'overview'
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-400 hover:text-white hover:bg-slate-700'
+            }`}
+          >
+            📊 综合视图 (TradingView)
+          </button>
+          <button
+            onClick={() => setIndicatorsView('detail')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              indicatorsView === 'detail'
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-400 hover:text-white hover:bg-slate-700'
+            }`}
+          >
+            📈 详细指标
+          </button>
+        </div>
+      </div>
+
+      {indicatorsView === 'overview' ? (
+        <TradingViewIndicators
+          indicators={coinDetail.technicalIndicators}
+          priceHistory={coinDetail.priceHistory}
+        />
+      ) : (
+        <TechnicalIndicatorsPanel indicators={coinDetail.technicalIndicators} />
+      )}
 
       <div className="bg-slate-800 rounded-xl p-6 shadow-lg">
         <h2 className="text-xl font-bold text-white mb-4">相关新闻</h2>

@@ -292,6 +292,9 @@ export class CoinGeckoService {
   private readonly technicalIndicatorsService: TechnicalIndicatorsService;
   private useMockData: boolean = false;
   private mockDataInitialized: boolean = false;
+  private lastSuccessfulApiCall: Date | null = null;
+  private lastDataRefresh: Date = new Date();
+  private apiAvailable: boolean = true;
 
   constructor() {
     this.apiUrl = config.coingeckoApiUrl;
@@ -343,6 +346,9 @@ export class CoinGeckoService {
       return generateMockCoins(limit);
     }
 
+    console.log(`[DEBUG] Fetching top ${limit} coins from CoinGecko API...`);
+    console.log(`[DEBUG] API URL: ${this.apiUrl}/coins/markets`);
+
     try {
       const response = await this.fetchWithRetry(() => 
         axios.get<CoinGeckoCoin[]>(
@@ -360,24 +366,55 @@ export class CoinGeckoService {
         )
       );
       
+      console.log(`[DEBUG] CoinGecko API response status: ${response.status}`);
+      console.log(`[DEBUG] Response headers:`, JSON.stringify(response.headers, null, 2));
+      
       if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        console.log(`[DEBUG] Successfully fetched ${response.data.length} coins from API`);
+        
+        this.lastSuccessfulApiCall = new Date();
+        this.apiAvailable = true;
+        
+        const first5Coins = response.data.slice(0, 5);
+        console.log(`[DEBUG] Sample coin data (first 5):`);
+        first5Coins.forEach((coin, index) => {
+          console.log(`[DEBUG]   [${index + 1}] ${coin.name} (${coin.symbol.toUpperCase()})`);
+          console.log(`[DEBUG]     ID: ${coin.id}`);
+          console.log(`[DEBUG]     Current Price: $${coin.current_price}`);
+          console.log(`[DEBUG]     24h Change: ${coin.price_change_percentage_24h}%`);
+          console.log(`[DEBUG]     Market Cap: $${coin.market_cap}`);
+          console.log(`[DEBUG]     24h High: $${coin.high_24h}`);
+          console.log(`[DEBUG]     24h Low: $${coin.low_24h}`);
+          console.log(`[DEBUG]     Last Updated: ${coin.last_updated}`);
+          console.log(`[DEBUG]     ---`);
+        });
+        
         return response.data;
       }
       
+      console.error(`[DEBUG] Empty or invalid response from CoinGecko`);
+      console.error(`[DEBUG] Response data:`, JSON.stringify(response.data, null, 2));
       throw new Error('Empty or invalid response from CoinGecko');
     } catch (error) {
-      console.warn('CoinGecko API failed, switching to mock data:', 
-        error instanceof Error ? error.message : String(error));
+      console.error('[DEBUG] CoinGecko API failed:');
+      console.error(`[DEBUG]   Error type: ${error instanceof Error ? error.name : typeof error}`);
+      console.error(`[DEBUG]   Error message: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`[DEBUG]   Stack: ${error instanceof Error ? error.stack : 'N/A'}`);
+      console.warn('[DEBUG] Switching to mock data...');
       this.useMockData = true;
+      this.apiAvailable = false;
       return generateMockCoins(limit);
     }
   }
 
   async fetchMarketChart(coinId: string, days: number = 30): Promise<CoinGeckoMarketChart> {
     if (this.useMockData) {
-      console.log(`Using mock data for ${coinId} market chart`);
+      console.log(`[DEBUG] Using mock data for ${coinId} market chart`);
       return generateMockMarketChart(coinId, days);
     }
+
+    console.log(`[DEBUG] Fetching market chart for ${coinId} (${days} days)...`);
+    console.log(`[DEBUG] API URL: ${this.apiUrl}/coins/${coinId}/market_chart`);
 
     try {
       const response = await this.fetchWithRetry(() => 
@@ -395,14 +432,36 @@ export class CoinGeckoService {
         500
       );
       
+      console.log(`[DEBUG] Market chart API response status: ${response.status}`);
+      
       if (response.data && response.data.prices && Array.isArray(response.data.prices)) {
+        console.log(`[DEBUG] Successfully fetched market chart for ${coinId}`);
+        console.log(`[DEBUG]   Price data points: ${response.data.prices.length}`);
+        console.log(`[DEBUG]   Market cap data points: ${response.data.market_caps?.length || 0}`);
+        console.log(`[DEBUG]   Volume data points: ${response.data.total_volumes?.length || 0}`);
+        
+        this.lastSuccessfulApiCall = new Date();
+        this.apiAvailable = true;
+        
+        if (response.data.prices.length > 0) {
+          const firstPrice = response.data.prices[0];
+          const lastPrice = response.data.prices[response.data.prices.length - 1];
+          console.log(`[DEBUG]   First price: ${new Date(firstPrice[0]).toLocaleString()} - $${firstPrice[1]}`);
+          console.log(`[DEBUG]   Last price: ${new Date(lastPrice[0]).toLocaleString()} - $${lastPrice[1]}`);
+          console.log(`[DEBUG]   Price change: ${((lastPrice[1] - firstPrice[1]) / firstPrice[1] * 100).toFixed(2)}%`);
+        }
+        
         return response.data;
       }
       
+      console.error(`[DEBUG] Invalid market chart response for ${coinId}`);
+      console.error(`[DEBUG] Response data:`, JSON.stringify(response.data, null, 2));
       throw new Error('Invalid market chart response');
     } catch (error) {
-      console.warn(`Failed to fetch market chart for ${coinId}, using mock data:`, 
-        error instanceof Error ? error.message : String(error));
+      console.error(`[DEBUG] Failed to fetch market chart for ${coinId}:`);
+      console.error(`[DEBUG]   Error: ${error instanceof Error ? error.message : String(error)}`);
+      console.warn(`[DEBUG] Using mock data for ${coinId} market chart...`);
+      this.apiAvailable = false;
       return generateMockMarketChart(coinId, days);
     }
   }
@@ -691,6 +750,37 @@ export class CoinGeckoService {
     }
     
     return true;
+  }
+
+  getApiHealthStatus(): {
+    apiAvailable: boolean;
+    usingMockData: boolean;
+    lastSuccessfulApiCall: Date | null;
+    dataSource: 'realtime' | 'cached' | 'mock';
+    lastDataRefresh: Date;
+  } {
+    let dataSource: 'realtime' | 'cached' | 'mock' = 'realtime';
+    
+    if (this.useMockData) {
+      const cachedCoins = this.getCoinsFromCache();
+      if (cachedCoins.length > 0) {
+        dataSource = 'cached';
+      } else {
+        dataSource = 'mock';
+      }
+    }
+
+    return {
+      apiAvailable: this.apiAvailable,
+      usingMockData: this.useMockData,
+      lastSuccessfulApiCall: this.lastSuccessfulApiCall,
+      dataSource,
+      lastDataRefresh: this.lastDataRefresh,
+    };
+  }
+
+  setLastDataRefresh(time: Date): void {
+    this.lastDataRefresh = time;
   }
 }
 
